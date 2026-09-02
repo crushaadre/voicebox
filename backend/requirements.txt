@@ -71,3 +71,13 @@ sse-starlette>=2.0
 # Utilities
 python-multipart>=0.0.6
 Pillow>=10.0.0
+
+# RVC offline vocal-conversion inference
+av>=15.1.0,<16
+faiss-cpu>=1.13.0,<2
+ffmpeg-python>=0.2.0,<1
+einops>=0.8.0,<1
+praat-parselmouth>=0.4.5,<1
+PyYAML>=6.0
+scipy>=1.13.1,<2
+tqdm>=4.67.0,<5

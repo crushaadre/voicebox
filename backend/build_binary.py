@@ -91,6 +91,10 @@ def build_server(cuda=False, rocm=False):
         args.extend(["--paths", str(qwen_tts_path)])
         logger.info("Using local qwen_tts source from: %s", qwen_tts_path)
 
+    # The RVC adapter imports the official inference tree dynamically at runtime.
+    # Add its source root explicitly so PyInstaller includes that tree.
+    args.extend(["--paths", str(backend_dir / "rvc_engine")])
+
     # Add common hidden imports
     args.extend(
         [
@@ -136,6 +140,38 @@ def build_server(cuda=False, rocm=False):
             "backend.utils.effects",
             "--hidden-import",
             "backend.services.versions",
+            "--hidden-import",
+            "backend.routes.rvc",
+            "--hidden-import",
+            "infer.cli",
+            "--hidden-import",
+            "infer.audio",
+            "--hidden-import",
+            "infer.hubert",
+            "--hidden-import",
+            "infer.rmvpe",
+            "--hidden-import",
+            "infer.rtrvc",
+            "--hidden-import",
+            "infer.module",
+            "--hidden-import",
+            "infer.module.models",
+            "--hidden-import",
+            "infer.module.modules",
+            "--hidden-import",
+            "infer.module.transforms",
+            "--hidden-import",
+            "infer.vc.modules",
+            "--hidden-import",
+            "infer.vc.pipeline",
+            "--hidden-import",
+            "infer.vc.utils",
+            "--hidden-import",
+            "configs.config",
+            "--hidden-import",
+            "tools.cuda_graph",
+            "--hidden-import",
+            "i18n.i18n",
             "--hidden-import",
             "pedalboard",
             "--hidden-import",

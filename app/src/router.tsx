@@ -23,6 +23,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { StoriesTab } from '@/components/StoriesTab/StoriesTab';
 import { Toaster } from '@/components/ui/toaster';
 import { VoicesTab } from '@/components/VoicesTab/VoicesTab';
+import { RvcTab } from '@/components/RvcTab/RvcTab';
 import { useGenerationProgress } from '@/lib/hooks/useGenerationProgress';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { MODEL_DISPLAY_NAMES, useRestoreActiveTasks } from '@/lib/hooks/useRestoreActiveTasks';
@@ -111,6 +112,13 @@ const voicesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/voices',
   component: VoicesTab,
+});
+
+// RVC vocal conversion route
+const rvcRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/rvc',
+  component: RvcTab,
 });
 
 // Captures route (prototype — will replace AudioTab once the new flow is ready)
@@ -205,6 +213,7 @@ const routeTree = rootRoute.addChildren([
   storiesRoute,
   capturesRoute,
   voicesRoute,
+  rvcRoute,
   effectsRoute,
   modelsRoute,
   settingsRoute.addChildren([
