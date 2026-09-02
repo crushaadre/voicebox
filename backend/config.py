@@ -18,8 +18,9 @@ if _custom_models_dir:
     os.environ["HF_HUB_CACHE"] = _custom_models_dir
     logger.info("Model download path set to: %s", _custom_models_dir)
 
-# Default data directory (used in development)
-_data_dir = Path("data").resolve()
+# Default data directory. VOICEBOX_STORAGE_DIR keeps standalone/dev launches
+# consistent with the packaged desktop application's storage-root override.
+_data_dir = Path(os.environ.get("VOICEBOX_STORAGE_DIR", "data")).expanduser().resolve()
 
 
 def _path_relative_to_any_data_dir(path: Path) -> Path | None:
