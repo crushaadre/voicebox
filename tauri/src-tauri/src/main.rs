@@ -631,6 +631,7 @@ async fn start_server(
             cmd = cmd.current_dir(rocm_dir);
             cmd = cmd.args(["--data-dir", &data_dir_str, "--port", &port_str, "--parent-pid", &parent_pid_str]);
             if is_remote { cmd = cmd.args(["--host", "0.0.0.0"]); }
+            cmd = cmd.env("VOICEBOX_STORAGE_DIR", &data_dir_str);
             if let Some(ref dir) = effective_models_dir { cmd = cmd.env("VOICEBOX_MODELS_DIR", dir); }
             match cmd.spawn() {
                 Ok(r) => { gpu_spawn = Some(Ok(r)); }
@@ -646,7 +647,8 @@ async fn start_server(
                 cmd = cmd.current_dir(cuda_dir);
                 cmd = cmd.args(["--data-dir", &data_dir_str, "--port", &port_str, "--parent-pid", &parent_pid_str]);
                 if is_remote { cmd = cmd.args(["--host", "0.0.0.0"]); }
-                if let Some(ref dir) = effective_models_dir { cmd = cmd.env("VOICEBOX_MODELS_DIR", dir); }
+                cmd = cmd.env("VOICEBOX_STORAGE_DIR", &data_dir_str);
+            if let Some(ref dir) = effective_models_dir { cmd = cmd.env("VOICEBOX_MODELS_DIR", dir); }
                 match cmd.spawn() {
                     Ok(r) => { gpu_spawn = Some(Ok(r)); }
                     Err(e) => { println!("CUDA spawn failed ({}), falling back to CPU", e); }
@@ -660,6 +662,7 @@ async fn start_server(
             // Fall back to bundled CPU sidecar
             sidecar = sidecar.args(["--data-dir", &data_dir_str, "--port", &port_str, "--parent-pid", &parent_pid_str]);
             if is_remote { sidecar = sidecar.args(["--host", "0.0.0.0"]); }
+            sidecar = sidecar.env("VOICEBOX_STORAGE_DIR", &data_dir_str);
             if let Some(ref dir) = effective_models_dir { sidecar = sidecar.env("VOICEBOX_MODELS_DIR", dir); }
             println!("Spawning bundled CPU server process...");
             sidecar.spawn()
@@ -671,6 +674,7 @@ async fn start_server(
         if is_remote {
             sidecar = sidecar.args(["--host", "0.0.0.0"]);
         }
+        sidecar = sidecar.env("VOICEBOX_STORAGE_DIR", &data_dir_str);
         if let Some(ref dir) = effective_models_dir {
             sidecar = sidecar.env("VOICEBOX_MODELS_DIR", dir);
         }
