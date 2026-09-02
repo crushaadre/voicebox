@@ -213,8 +213,50 @@ struct ServerState {
     backend_override: Mutex<Option<String>>,
 }
 
+/// Resolve the root for Voicebox-managed files. On Windows the released
+/// application uses %APPDATA%, so this build intentionally uses the user's
+/// fixed E: location instead. Other platforms keep their normal app-data root.
+fn configured_data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    #[cfg(windows)]
+    {
+        return Ok(std::path::PathBuf::from(r"E:\Voicebox\sh.voicebox.app"));
+    }
+
+    #[cfg(not(windows))]
+    app.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))
+}
+
+
 fn backend_override_file(data_dir: &std::path::Path) -> std::path::PathBuf {
     data_dir.join("backend_override")
+}
+
+fn models_dir_file(data_dir: &std::path::Path) -> std::path::PathBuf {
+    data_dir.join("models_dir")
+}
+
+fn read_persisted_models_dir(data_dir: &std::path::Path) -> Option<String> {
+    std::fs::read_to_string(models_dir_file(data_dir))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+fn write_persisted_models_dir(data_dir: &std::path::Path, value: Option<&str>) {
+    let path = models_dir_file(data_dir);
+    match value {
+        Some(v) => {
+            let _ = std::fs::create_dir_all(data_dir);
+            if let Err(e) = std::fs::write(&path, v) {
+                println!("Failed to persist models directory: {}", e);
+            }
+        }
+        None => {
+            let _ = std::fs::remove_file(&path);
+        }
+    }
 }
 
 fn read_persisted_backend_override(data_dir: &std::path::Path) -> Option<String> {
@@ -270,12 +312,17 @@ async fn start_server(
     remote: Option<bool>,
     models_dir: Option<String>,
 ) -> Result<String, String> {
-    // Store models_dir for use on restart (empty string means reset to default)
+    let data_dir = configured_data_dir(&app)?;
+
+    // Store models_dir for use on restart and future launches. An empty string
+    // resets to the standard Hugging Face cache location.
     if let Some(ref dir) = models_dir {
         if dir.is_empty() {
             *state.models_dir.lock().unwrap() = None;
+            write_persisted_models_dir(&data_dir, None);
         } else {
             *state.models_dir.lock().unwrap() = Some(dir.clone());
+            write_persisted_models_dir(&data_dir, Some(dir));
         }
     }
     // Check if server is already running (managed by this app instance)
@@ -405,12 +452,6 @@ async fn start_server(
     
     // Brief wait for port to be released
     std::thread::sleep(std::time::Duration::from_millis(200));
-
-    // Get app data directory
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
 
     // Ensure data directory exists
     std::fs::create_dir_all(&data_dir)
@@ -548,8 +589,12 @@ async fn start_server(
     let parent_pid_str = std::process::id().to_string();
     let is_remote = remote.unwrap_or(false);
 
-    // Resolve the custom models directory from the parameter or stored state
-    let effective_models_dir = models_dir.or_else(|| state.models_dir.lock().unwrap().clone());
+    // Resolve the custom models directory from the parameter, the current
+    // process, or the value persisted after a model-cache migration.
+    let effective_models_dir = models_dir
+        .or_else(|| state.models_dir.lock().unwrap().clone())
+        .or_else(|| read_persisted_models_dir(&data_dir))
+        .or_else(|| Some(data_dir.join("models").to_string_lossy().into_owned()));
     if let Some(ref dir) = effective_models_dir {
         println!("Custom models directory: {}", dir);
     }
@@ -883,13 +928,16 @@ async fn restart_server(
     models_dir: Option<String>,
 ) -> Result<String, String> {
     println!("restart_server: stopping current server...");
-
-    // Update stored models_dir: empty string means reset to default, non-empty means set
+    // Update the active and persisted model folder. An empty string resets to
+    // the standard Hugging Face cache location.
     if let Some(ref dir) = models_dir {
+        let data_dir = configured_data_dir(&app)?;
         if dir.is_empty() {
             *state.models_dir.lock().unwrap() = None;
+            write_persisted_models_dir(&data_dir, None);
         } else {
             *state.models_dir.lock().unwrap() = Some(dir.clone());
+            write_persisted_models_dir(&data_dir, Some(dir));
         }
     }
 
@@ -918,7 +966,7 @@ fn set_backend_override(
     backend: Option<String>,
 ) {
     println!("set_backend_override called with: {:?}", backend);
-    if let Ok(data_dir) = app.path().app_data_dir() {
+    if let Ok(data_dir) = configured_data_dir(&app) {
         write_persisted_backend_override(&data_dir, backend.as_deref());
     }
     *state.backend_override.lock().unwrap() = backend;
@@ -1598,10 +1646,7 @@ pub fn run() {
                         // the HTTP request below can race with process exit, leaving
                         // the watchdog unaware it should stay alive. The sentinel
                         // file is checked during the watchdog grace period.
-                        let data_dir = app
-                            .path()
-                            .app_data_dir()
-                            .unwrap_or_default();
+                        let data_dir = configured_data_dir(&app).unwrap_or_default();
                         let sentinel = data_dir.join(".keep-running");
                         if let Err(e) = std::fs::write(&sentinel, b"1") {
                             eprintln!("Failed to write keep-running sentinel: {}", e);
