@@ -53,6 +53,12 @@ import type {
   MCPClientBindingUpsert,
   CloudLoginStartResponse,
   CloudStatus,
+  AssistantChatResponse,
+  AssistantMemory,
+  AssistantSession,
+  AssistantMessage,
+  AssistantSettings,
+  AssistantVoice,
 } from './types';
 
 function formatErrorDetail(detail: unknown, fallback: string): string {
@@ -954,6 +960,72 @@ class ApiClient {
 
   async disconnectCloud(): Promise<CloudStatus> {
     return this.request<CloudStatus>('/cloud/disconnect', { method: 'POST' });
+  }
+
+  // Assistant Mode
+  async getAssistantSettings(): Promise<AssistantSettings> {
+    return this.request<AssistantSettings>('/assistant/settings');
+  }
+
+  async updateAssistantSettings(patch: Partial<AssistantSettings>): Promise<AssistantSettings> {
+    return this.request<AssistantSettings>('/assistant/settings', {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    });
+  }
+
+  async listAssistantVoices(): Promise<AssistantVoice[]> {
+    return this.request<AssistantVoice[]>('/assistant/voices');
+  }
+
+  async listAssistantSessions(): Promise<AssistantSession[]> {
+    return this.request<AssistantSession[]>('/assistant/sessions');
+  }
+
+  async createAssistantSession(title?: string): Promise<AssistantSession> {
+    return this.request<AssistantSession>('/assistant/sessions', {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    });
+  }
+
+  async listAssistantMessages(sessionId: string): Promise<AssistantMessage[]> {
+    return this.request<AssistantMessage[]>(
+      `/assistant/sessions/${encodeURIComponent(sessionId)}/messages`,
+    );
+  }
+
+  async chatWithAssistant(
+    sessionId: string,
+    message: string,
+    options?: { model_size?: string; speak_response?: boolean; remember?: boolean },
+  ): Promise<AssistantChatResponse> {
+    return this.request<AssistantChatResponse>(
+      `/assistant/sessions/${encodeURIComponent(sessionId)}/chat`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ message, ...options }),
+      },
+    );
+  }
+
+  async listAssistantMemories(query?: string): Promise<AssistantMemory[]> {
+    const suffix = query ? `?query=${encodeURIComponent(query)}` : '';
+    return this.request<AssistantMemory[]>(`/assistant/memory${suffix}`);
+  }
+
+  async createAssistantMemory(content: string, category?: string): Promise<AssistantMemory> {
+    return this.request<AssistantMemory>('/assistant/memory', {
+      method: 'POST',
+      body: JSON.stringify({ content, category }),
+    });
+  }
+
+  async deleteAssistantMemory(memoryId: string): Promise<{ deleted: boolean; id: string }> {
+    return this.request<{ deleted: boolean; id: string }>(
+      `/assistant/memory/${encodeURIComponent(memoryId)}`,
+      { method: 'DELETE' },
+    );
   }
 }
 

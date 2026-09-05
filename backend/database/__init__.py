@@ -7,6 +7,10 @@ without changing any importers.
 
 from .models import (
     Base,
+    AssistantMemory,
+    AssistantMessage,
+    AssistantSession,
+    AssistantSettings,
     AudioChannel,
     Capture,
     CaptureSettings,
@@ -29,6 +33,10 @@ from .session import engine, SessionLocal, _db_path, init_db, get_db
 __all__ = [
     # Models
     "Base",
+    "AssistantMemory",
+    "AssistantMessage",
+    "AssistantSession",
+    "AssistantSettings",
     "AudioChannel",
     "Capture",
     "CaptureSettings",

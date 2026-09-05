@@ -560,3 +560,58 @@ export interface CloudStatus {
   connected_at: string | null;
   dashboard_url: string;
 }
+
+// Assistant Mode
+export interface AssistantSettings {
+  enabled: boolean;
+  assistant_name: string;
+  system_prompt: string;
+  response_style: string;
+  language: string;
+  model_size: string;
+  voice_profile_id: string | null;
+  memory_enabled: boolean;
+}
+
+export interface AssistantSession {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssistantMessage {
+  id: string;
+  session_id: string;
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  tool_name?: string | null;
+  created_at: string;
+}
+
+export interface AssistantVoice {
+  id: string;
+  name: string;
+  language: string;
+  voice_type: string;
+  default_engine?: string | null;
+}
+
+export interface AssistantChatResponse {
+  session: AssistantSession;
+  user_message: AssistantMessage;
+  assistant_message: AssistantMessage;
+  audio_path?: string | null;
+  model_size: string;
+}
+
+export interface AssistantMemory {
+  id: string;
+  content: string;
+  category?: string | null;
+  source: string;
+  approved: boolean;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}

@@ -280,6 +280,65 @@ class MCPClientBinding(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class AssistantSession(Base):
+    """A persisted local assistant conversation."""
+
+    __tablename__ = "assistant_sessions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String, nullable=False, default="New conversation")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AssistantMessage(Base):
+    """A message or controlled tool event in an assistant session."""
+
+    __tablename__ = "assistant_messages"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String, ForeignKey("assistant_sessions.id"), nullable=False)
+    role = Column(String, nullable=False)  # system | user | assistant | tool
+    content = Column(Text, nullable=False, default="")
+    tool_name = Column(String, nullable=True)
+    tool_payload = Column(JSON, nullable=True)
+    source_capture_id = Column(String, ForeignKey("captures.id"), nullable=True)
+    generation_id = Column(String, ForeignKey("generations.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AssistantMemory(Base):
+    """Opt-in persistent memory explicitly approved by the user."""
+
+    __tablename__ = "assistant_memories"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    content = Column(Text, nullable=False)
+    category = Column(String, nullable=True)
+    source = Column(String, nullable=False, default="user")
+    approved = Column(Boolean, nullable=False, default=False)
+    enabled = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AssistantSettings(Base):
+    """Singleton assistant preferences; id is always 1."""
+
+    __tablename__ = "assistant_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    enabled = Column(Boolean, nullable=False, default=True)
+    assistant_name = Column(String, nullable=False, default="Jarvis")
+    system_prompt = Column(Text, nullable=False, default="You are a calm, helpful local assistant.")
+    response_style = Column(String, nullable=False, default="concise")
+    language = Column(String, nullable=False, default="en")
+    model_size = Column(String, nullable=False, default="1.7B")
+    voice_profile_id = Column(String, ForeignKey("profiles.id"), nullable=True)
+    memory_enabled = Column(Boolean, nullable=False, default=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class Capture(Base):
     """A single voice input capture (dictation, recording, or uploaded file).
 

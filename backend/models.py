@@ -815,3 +815,94 @@ class CloudStatusResponse(BaseModel):
     key_prefix: Optional[str] = None
     connected_at: Optional[datetime] = None
     dashboard_url: str
+
+
+# Assistant Mode schemas
+class AssistantSettingsResponse(BaseModel):
+    enabled: bool
+    assistant_name: str
+    system_prompt: str
+    response_style: str
+    language: str
+    model_size: str
+    voice_profile_id: Optional[str] = None
+    memory_enabled: bool
+
+    class Config:
+        from_attributes = True
+
+
+class AssistantSettingsUpdate(BaseModel):
+    enabled: Optional[bool] = None
+    assistant_name: Optional[str] = Field(None, min_length=1, max_length=80)
+    system_prompt: Optional[str] = Field(None, max_length=8000)
+    response_style: Optional[str] = Field(None, max_length=80)
+    language: Optional[str] = Field(None, min_length=2, max_length=12)
+    model_size: Optional[str] = Field(None, pattern=r"^(0\.6B|1\.7B|4B)$")
+    voice_profile_id: Optional[str] = None
+    memory_enabled: Optional[bool] = None
+
+
+class AssistantSessionCreate(BaseModel):
+    title: Optional[str] = Field(None, max_length=160)
+
+
+class AssistantSessionResponse(BaseModel):
+    id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AssistantMessageResponse(BaseModel):
+    id: str
+    session_id: str
+    role: str
+    content: str
+    tool_name: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AssistantChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=20000)
+    model_size: Optional[str] = Field(None, pattern=r"^(0\.6B|1\.7B|4B)$")
+    speak_response: bool = True
+    remember: bool = False
+
+
+class AssistantChatResponse(BaseModel):
+    session: AssistantSessionResponse
+    user_message: AssistantMessageResponse
+    assistant_message: AssistantMessageResponse
+    audio_path: Optional[str] = None
+    model_size: str
+
+
+class AssistantMemoryCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=4000)
+    category: Optional[str] = Field(None, max_length=80)
+
+
+class AssistantMemoryResponse(BaseModel):
+    id: str
+    content: str
+    category: Optional[str] = None
+    source: str
+    approved: bool
+    enabled: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AssistantMemorySearch(BaseModel):
+    query: Optional[str] = Field(None, max_length=500)
+    limit: int = Field(default=20, ge=1, le=100)
