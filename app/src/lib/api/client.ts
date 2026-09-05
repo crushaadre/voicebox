@@ -1009,6 +1009,26 @@ class ApiClient {
     );
   }
 
+  async assistantVoiceChat(
+    sessionId: string,
+    file: File,
+    options?: { speak_response?: boolean; remember?: boolean },
+  ): Promise<AssistantChatResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('speak_response', String(options?.speak_response ?? true));
+    formData.append('remember', String(options?.remember ?? false));
+    const response = await fetch(
+      `${this.getBaseUrl()}/assistant/sessions/${encodeURIComponent(sessionId)}/voice-chat`,
+      { method: 'POST', body: formData },
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
+    }
+    return response.json();
+  }
+
   async listAssistantMemories(query?: string): Promise<AssistantMemory[]> {
     const suffix = query ? `?query=${encodeURIComponent(query)}` : '';
     return this.request<AssistantMemory[]>(`/assistant/memory${suffix}`);

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pathlib import Path
 import mimetypes
@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..database import AssistantMemory, AssistantMessage, AssistantSession, VoiceProfile, get_db
 from ..services import assistant
+from ..services import captures as captures_service
+from ..services import settings as settings_service
 
 router = APIRouter()
 
@@ -127,6 +129,61 @@ async def assistant_chat(
             # Text chat remains usable when a TTS model or voice profile is unavailable.
             audio_path = None
 
+    return models.AssistantChatResponse(
+        session=_session_response(session),
+        user_message=_message_response(user_message),
+        assistant_message=_message_response(assistant_message),
+        audio_path=audio_path,
+        model_size=selected_model,
+    )
+
+
+@router.post(
+    "/assistant/sessions/{session_id}/voice-chat",
+    response_model=models.AssistantChatResponse,
+)
+async def assistant_voice_chat(
+    session_id: str,
+    file: UploadFile = File(...),
+    speak_response: bool = Form(True),
+    remember: bool = Form(False),
+    db: Session = Depends(get_db),
+):
+    """Transcribe an uploaded recording through existing captures/STT, then chat."""
+    settings = assistant.get_or_create_settings(db)
+    if not settings.enabled:
+        raise HTTPException(status_code=409, detail="Assistant Mode is disabled")
+    audio_bytes = await file.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded audio is empty")
+    capture_settings = settings_service.get_capture_settings(db)
+    try:
+        capture = await captures_service.create_capture(
+            audio_bytes=audio_bytes,
+            filename=file.filename or "assistant-recording.wav",
+            source="assistant",
+            language=None if capture_settings.language == "auto" else capture_settings.language,
+            stt_model=capture_settings.stt_model,
+            db=db,
+        )
+        session, user_message, assistant_message, selected_model = await assistant.chat(
+            db,
+            session_id,
+            capture.transcript_refined or capture.transcript_raw,
+            model_size=settings.model_size,
+            remember=remember,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Assistant voice chat failed") from exc
+
+    audio_path = None
+    if speak_response:
+        try:
+            audio_path = await assistant.speak_response(db, assistant_message.content, settings)
+        except Exception:
+            audio_path = None
     return models.AssistantChatResponse(
         session=_session_response(session),
         user_message=_message_response(user_message),
