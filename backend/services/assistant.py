@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from .. import config
 from ..backends import get_llm_model
+from . import assistant_tools
 from ..database import (
     AssistantMemory,
     AssistantMessage,
@@ -126,22 +127,17 @@ async def chat(
     db.flush()
 
     if remember:
-        add_memory(db, cleaned)
+        assistant_tools.store_memory(db, cleaned)
 
     # Explicit, bounded voice command. The assistant may select only an existing
     # profile by name; it cannot create profiles or manipulate filesystem paths.
     voice_match = re.match(r"^(?:switch to|use|change to) (?:the )?(.+?)(?: voice)?[.!?]*$", cleaned, re.I)
     if voice_match:
         requested = voice_match.group(1).strip().lower()
-        profile = next(
-            (item for item in db.query(VoiceProfile).all() if item.name.lower() == requested),
-            None,
-        )
-        if profile is not None:
-            settings.voice_profile_id = profile.id
-            db.commit()
+        try:
+            profile = assistant_tools.select_voice(db, settings, requested)
             reply = f"I switched to the {profile.name} voice."
-        else:
+        except assistant_tools.AssistantToolError:
             reply = f"I could not find an existing Voicebox voice named {voice_match.group(1).strip()}."
         assistant_message = AssistantMessage(session_id=session.id, role="assistant", content=reply)
         db.add(assistant_message)
