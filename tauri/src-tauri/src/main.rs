@@ -213,10 +213,10 @@ struct ServerState {
     backend_override: Mutex<Option<String>>,
 }
 
-/// Resolve the root for Voicebox-managed files. On Windows the released
-/// application uses %APPDATA%, so this build intentionally uses the user's
-/// fixed E: location instead. Other platforms keep their normal app-data root.
-fn configured_data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+/// The initial Windows default for the user who requested the E-drive build.
+/// It is only a default: the active root is read from the small desktop config
+/// file first, so the user can later move Voicebox to another drive.
+fn default_data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     #[cfg(windows)]
     {
         return Ok(std::path::PathBuf::from(r"E:\Voicebox\sh.voicebox.app"));
@@ -228,6 +228,113 @@ fn configured_data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, Str
         .map_err(|e| format!("Failed to get app data dir: {}", e))
 }
 
+fn storage_root_config_file(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let config_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Failed to get app config dir: {}", e))?;
+    Ok(config_dir.join("storage_root"))
+}
+
+fn configured_data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let default = default_data_dir(app)?;
+    let config_file = storage_root_config_file(app)?;
+    if let Ok(saved) = std::fs::read_to_string(config_file) {
+        let candidate = std::path::PathBuf::from(saved.trim());
+        if candidate.is_absolute() && !saved.trim().is_empty() {
+            return Ok(candidate);
+        }
+    }
+    Ok(default)
+}
+
+fn persist_storage_root(app: &tauri::AppHandle, root: &std::path::Path) -> Result<(), String> {
+    let config_file = storage_root_config_file(app)?;
+    if let Some(parent) = config_file.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create config directory: {}", e))?;
+    }
+    std::fs::write(config_file, root.to_string_lossy().as_bytes())
+        .map_err(|e| format!("Failed to save storage root: {}", e))
+}
+
+fn copy_storage_contents(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
+    if !src.exists() {
+        return Ok(());
+    }
+    std::fs::create_dir_all(dst).map_err(|e| format!("Failed to create destination: {}", e))?;
+    for entry in std::fs::read_dir(src).map_err(|e| format!("Failed to read source storage: {}", e))? {
+        let entry = entry.map_err(|e| format!("Failed to read storage entry: {}", e))?;
+        let source = entry.path();
+        let target = dst.join(entry.file_name());
+        if source.is_dir() {
+            copy_storage_contents(&source, &target)?;
+        } else {
+            std::fs::copy(&source, &target)
+                .map_err(|e| format!("Failed to copy {}: {}", source.display(), e))?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_storage_destination(
+    current: &std::path::Path,
+    requested: &str,
+) -> Result<std::path::PathBuf, String> {
+    let trimmed = requested.trim();
+    if trimmed.is_empty() {
+        return Err("Storage folder cannot be empty".to_string());
+    }
+    let destination = std::path::PathBuf::from(trimmed);
+    if !destination.is_absolute() {
+        return Err("Storage folder must be an absolute path".to_string());
+    }
+    std::fs::create_dir_all(&destination)
+        .map_err(|e| format!("Cannot create storage folder: {}", e))?;
+    let destination = std::fs::canonicalize(&destination)
+        .map_err(|e| format!("Cannot resolve storage folder: {}", e))?;
+    if destination.parent().is_none() || destination.parent().is_some_and(|p| p.as_os_str().is_empty()) {
+        return Err("Choose a folder inside a drive, not the filesystem root".to_string());
+    }
+    let current = if current.exists() {
+        std::fs::canonicalize(current).unwrap_or_else(|_| current.to_path_buf())
+    } else {
+        current.to_path_buf()
+    };
+    if destination == current || destination.starts_with(&current) || current.starts_with(&destination) {
+        return Err("The new storage folder cannot be the current folder or one of its parent/child folders".to_string());
+    }
+    Ok(destination)
+}
+
+#[command]
+fn get_storage_root(app: tauri::AppHandle) -> Result<String, String> {
+    Ok(configured_data_dir(&app)?.to_string_lossy().into_owned())
+}
+
+#[command]
+async fn change_storage_root(
+    app: tauri::AppHandle,
+    state: State<'_, ServerState>,
+    new_root: String,
+    migrate: bool,
+) -> Result<String, String> {
+    let current = configured_data_dir(&app)?;
+    let destination = validate_storage_destination(&current, &new_root)?;
+    if migrate && destination.read_dir().map_err(|e| e.to_string())?.next().is_some() {
+        return Err("Choose an empty destination folder before moving Voicebox data".to_string());
+    }
+
+    stop_server(state.clone()).await?;
+    if migrate {
+        if let Err(error) = copy_storage_contents(&current, &destination) {
+            let _ = start_server(app.clone(), state.clone(), None, None).await;
+            return Err(error);
+        }
+    }
+    persist_storage_root(&app, &destination)?;
+    start_server(app, state, None, None).await?;
+    Ok(destination.to_string_lossy().into_owned())
+}
 
 fn backend_override_file(data_dir: &std::path::Path) -> std::path::PathBuf {
     data_dir.join("backend_override")
@@ -1562,6 +1669,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             start_server,
             stop_server,
+            get_storage_root,
+            change_storage_root,
             restart_server,
             set_keep_server_running,
             set_backend_override,

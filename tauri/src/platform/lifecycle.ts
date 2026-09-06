@@ -52,6 +52,16 @@ class TauriLifecycle implements PlatformLifecycle {
     }
   }
 
+  async getStorageRoot(): Promise<string> {
+    return invoke<string>('get_storage_root');
+  }
+
+  async changeStorageRoot(newRoot: string, migrate: boolean): Promise<string> {
+    const result = await invoke<string>('change_storage_root', { newRoot, migrate });
+    this.onServerReady?.();
+    return result;
+  }
+
   async setBackendOverride(backend?: string | null): Promise<void> {
     try {
       await invoke('set_backend_override', { backend: backend ?? undefined });

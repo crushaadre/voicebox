@@ -17,7 +17,7 @@ import {
   Unplug,
   X,
 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import {
   AlertDialog,
@@ -146,6 +146,37 @@ export function ModelManagement() {
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
   const [localErrors, setLocalErrors] = useState<Map<string, string>>(new Map());
+  const [storageRoot, setStorageRoot] = useState<string | null>(null);
+  const [changingStorageRoot, setChangingStorageRoot] = useState(false);
+
+  useEffect(() => {
+    if (!platform.metadata.isTauri) return;
+    void platform.lifecycle.getStorageRoot().then(setStorageRoot).catch(() => undefined);
+  }, [platform]);
+
+  const chooseStorageRoot = async () => {
+    if (changingStorageRoot) return;
+    try {
+      const newRoot = await platform.filesystem.pickDirectory('Choose Voicebox storage folder');
+      if (!newRoot || newRoot === storageRoot) return;
+      const migrate = window.confirm(
+        'Move all existing Voicebox data, including models, RVC files, Assistant data, generations, and the database to this folder? Choose Cancel to use the new folder without copying old data.',
+      );
+      setChangingStorageRoot(true);
+      const savedRoot = await platform.lifecycle.changeStorageRoot(newRoot, migrate);
+      setStorageRoot(savedRoot);
+      queryClient.invalidateQueries();
+      toast({ title: 'Voicebox storage folder changed', description: savedRoot });
+    } catch (error) {
+      toast({
+        title: 'Could not change storage folder',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setChangingStorageRoot(false);
+    }
+  };
 
   // Modal state
   const [selectedModel, setSelectedModel] = useState<ModelStatus | null>(null);
@@ -448,6 +479,33 @@ export function ModelManagement() {
         <h1 className="text-lg font-semibold">{t('models.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('models.subtitle')}</p>
       </div>
+
+      {/* Full Voicebox storage location */}
+      {platform.metadata.isTauri && storageRoot && (
+        <div className="shrink-0 pb-4 border-b mb-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <span className="text-xs text-muted-foreground">Voicebox storage folder</span>
+              <p className="text-xs font-mono text-muted-foreground/70 truncate" title={storageRoot}>
+                {storageRoot}
+              </p>
+              <p className="text-[11px] text-muted-foreground/60 mt-1">
+                Database, cache, generations, models, RVC, Assistant data, and profiles use this folder.
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground h-7 px-2 shrink-0"
+              onClick={() => void chooseStorageRoot()}
+              disabled={changingStorageRoot}
+            >
+              {changingStorageRoot ? <Loader2 className="h-3 w-3 animate-spin" /> : <FolderOpen className="h-3 w-3" />}
+              {changingStorageRoot ? 'Moving…' : 'Choose folder'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Model storage location */}
       {platform.metadata.isTauri && cacheDir && (
