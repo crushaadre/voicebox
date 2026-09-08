@@ -20,7 +20,7 @@ set windows-shell := ["powershell", "-NoProfile", "-Command"]
 # Detect best python for venv creation (platform-aware)
 system_python := if os() == "windows" { "python" } else { `command -v python3.12 2>/dev/null || command -v python3.13 2>/dev/null || echo python3` }
 
-# ─── Setup ────────────────────────────────────────────────────────────
+# ─── Setup ───────────────────────────────────────────────────────────────
 
 # Full project setup (python venv + JS deps + dev sidecar)
 setup: setup-python setup-js
@@ -99,6 +99,7 @@ setup-python:
     Write-Host "Detected GPUs: $($gpus -join ', ')"; \
     $hasNvidia = ($gpus | Where-Object { $_ -match 'NVIDIA' }).Count -gt 0; \
     $hasIntelArc = ($gpus | Where-Object { $_ -match 'Arc' }).Count -gt 0; \
+    $hasAMD = ($gpus | Where-Object { $_ -match 'AMD|Radeon' }).Count -gt 0; \
     if ($hasNvidia) { \
         Write-Host "NVIDIA GPU detected — installing PyTorch with CUDA support..."; \
         & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
@@ -106,8 +107,11 @@ setup-python:
         Write-Host "Intel Arc GPU detected — installing PyTorch with XPU support..."; \
         & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu; \
         & "{{ pip }}" install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu; \
+    } elseif ($hasAMD) { \
+        Write-Host "AMD Radeon GPU detected — installing PyTorch with DirectML support..."; \
+        & "{{ pip }}" install torch torchvision torchaudio; \
     } else { \
-        Write-Host "No NVIDIA or Intel Arc GPU detected — using CPU-only PyTorch."; \
+        Write-Host "No NVIDIA, Intel Arc, or AMD GPU detected — using CPU-only PyTorch."; \
         Write-Host "If you have an Intel Arc GPU, install XPU support manually:"; \
         Write-Host "  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu"; \
         Write-Host "  pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu"; \
@@ -218,7 +222,7 @@ kill:
     Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like '*uvicorn*backend.main*' -or $_.CommandLine -like '*vite*' } | Stop-Process -Force -ErrorAction SilentlyContinue
     Write-Host "Dev processes killed."
 
-# ─── Build ────────────────────────────────────────────────────────────
+# ─── Build ───────────────────────────────────────────────────────────
 
 # Build everything (server binary + desktop app)
 build: build-server build-tauri
@@ -385,7 +389,7 @@ logs:
 logs:
     Get-ChildItem {{ backend_dir }}/logs/*.log -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Tail 50 -Wait } ; if (-not $?) { Write-Host "No log files found" }
 
-# ─── Clean ────────────────────────────────────────────────────────────
+# ─── Clean ───────────────────────────────────────────────────────────
 
 # Clean build artifacts
 [unix]
@@ -422,10 +426,10 @@ clean-all: clean clean-python
 
 [windows]
 clean-all: clean clean-python
-    if (Test-Path "node_modules") { Remove-Item -Recurse -Force "node_modules" }
-    if (Test-Path "{{ app_dir }}/node_modules") { Remove-Item -Recurse -Force "{{ app_dir }}/node_modules" }
-    if (Test-Path "{{ tauri_dir }}/node_modules") { Remove-Item -Recurse -Force "{{ tauri_dir }}/node_modules" }
-    if (Test-Path "{{ web_dir }}/node_modules") { Remove-Item -Recurse -Force "{{ web_dir }}/node_modules" }
+    if (Test-Path node_modules) { Remove-Item -Recurse -Force node_modules }
+    if (Test-Path {{ app_dir }}/node_modules) { Remove-Item -Recurse -Force {{ app_dir }}/node_modules }
+    if (Test-Path {{ tauri_dir }}/node_modules) { Remove-Item -Recurse -Force {{ tauri_dir }}/node_modules }
+    if (Test-Path {{ web_dir }}/node_modules) { Remove-Item -Recurse -Force {{ web_dir }}/node_modules }
     Push-Location "{{ tauri_dir }}/src-tauri"; cargo clean; Pop-Location
 
 # ─── Internal ─────────────────────────────────────────────────────────
