@@ -28,6 +28,16 @@ class WebLifecycle implements PlatformLifecycle {
     // No-op for web - backend variant is managed externally
   }
 
+  async getStorageRoot(): Promise<string> {
+    // Web has no persistent storage root - return default
+    return '';
+  }
+
+  async changeStorageRoot(_newRoot: string, _migrate: boolean): Promise<string> {
+    // Web cannot change storage root - not supported
+    throw new Error('Storage root changes are not supported in web mode');
+  }
+
   async setupWindowCloseHandler(): Promise<void> {
     // No-op for web - no window close handling needed
   }
