@@ -167,7 +167,8 @@ function MainApp() {
     serverStartingRef.current = true;
     const isRemote = useServerStore.getState().mode === 'remote';
     const customModelsDir = useServerStore.getState().customModelsDir;
-    console.log(`Production mode: Starting bundled server... (remote: ${isRemote})`);
+    // Diagnostic: confirm we're calling startServer in production Tauri
+    console.log('[VOICEBOX] Starting server... isTauri:', platform.metadata.isTauri, 'PROD:', import.meta.env.PROD);
 
     platform.lifecycle
       .startServer(isRemote, customModelsDir)
