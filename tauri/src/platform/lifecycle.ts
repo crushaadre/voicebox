@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { writeTextFile, BaseDirectory } from '@tauri-apps/plugin-fs';
 import { emit, listen } from '@tauri-apps/api/event';
 import type { PlatformLifecycle, ServerLogEntry } from '@/platform/types';
 
@@ -16,6 +17,8 @@ class TauriLifecycle implements PlatformLifecycle {
       return result;
     } catch (error) {
       console.error('Failed to start server:', error);
+      // Persist exact error message for post-mortem debugging
+      await writeErrorDiagnostic(error);
       throw error;
     }
   }
@@ -129,6 +132,23 @@ class TauriLifecycle implements PlatformLifecycle {
       unlisten?.();
       unlisten = null;
     };
+  }
+}
+
+async function writeErrorDiagnostic(error: unknown): Promise<void> {
+  try {
+    const errorStr = error instanceof Error ? error.message : String(error);
+    const timestamp = new Date().toISOString();
+    const content = `=== Voicebox Server Startup Error ===\nTimestamp: ${timestamp}\nError:\n${errorStr}`;
+
+    // Write to app data directory using BaseDirectory.AppData directly
+    await writeTextFile('error_diagnostic.txt', content, {
+      baseDir: BaseDirectory.AppData,
+    });
+    console.log('[Diagnostic] Server error written to app data/error_diagnostic.txt');
+  } catch (writeError) {
+    // Silent fail: don't let diagnostic write errors alter normal behavior
+    console.error('[Diagnostic] Failed to write error file:', writeError);
   }
 }
 
