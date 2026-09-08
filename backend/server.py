@@ -284,16 +284,15 @@ if __name__ == "__main__":
 
         logger.info(f"Parsed arguments: host={args.host}, port={args.port}, data_dir={args.data_dir}")
 
-        # Windows custom build: enforce the user-requested storage root at the
-        # server boundary so every bundled variant uses the same location.
-        if sys.platform == "win32":
-            args.data_dir = r"E:\Voicebox\sh.voicebox.app"
-            logger.info(f"Windows storage root enforced: {args.data_dir}")
-
-        # Set data directory if provided
+        # FIX: Honor the user-selected storage root passed from Tauri via --data-dir
+        # The hardcoded E:\ drive path was a temporary workaround that prevented
+        # users from choosing their own storage location. Now respect the configured
+        # storage root which is passed by Tauri's configured_data_dir() function.
         if args.data_dir:
-            logger.info(f"Setting data directory to: {args.data_dir}")
+            logger.info(f"Using user-configured storage root: {args.data_dir}")
             config.set_data_dir(args.data_dir)
+        else:
+            logger.warning("No data directory specified, using default (VOICEBOX_STORAGE_DIR env or 'data')")
 
         # Initialize database after data directory is set
         logger.info("Initializing database...")
