@@ -24,6 +24,30 @@ pub const DICTATE_WINDOW_LABEL: &str = "dictate";
 const DICTATE_WINDOW_WIDTH: f64 = 420.0;
 const DICTATE_WINDOW_HEIGHT: f64 = 64.0;
 
+/// Append a line to the startup diagnostic log under the data dir.
+/// Best-effort — never panics, never blocks startup.
+fn diag_log(data_dir: &std::path::Path, msg: &str) {
+    use std::io::Write;
+    let path = data_dir.join("voicebox-startup.log");
+    let line = format!(
+        "[{}] {}\n",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+        msg
+    );
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        let _ = f.write_all(line.as_bytes());
+    }
+    // Also mirror to stderr so terminal launches still capture it
+    eprintln!("[voicebox-startup] {}", msg);
+}
+
 /// Create the floating dictate webview hidden. The HotkeyMonitor shows it on
 /// chord-start; the frontend hides it when the capture pipeline finishes.
 /// Building it at setup avoids a race where the first chord or agent-speech
@@ -421,6 +445,16 @@ async fn start_server(
 ) -> Result<String, String> {
     let data_dir = configured_data_dir(&app)?;
 
+    // --- Startup diagnostics: truncate and start fresh each launch ---
+    let diag_path = data_dir.join("voicebox-startup.log");
+    let _ = std::fs::create_dir_all(&data_dir);
+    let _ = std::fs::write(&diag_path, b"");
+    diag_log(&data_dir, "=== start_server() invoked ===");
+    diag_log(&data_dir, &format!("configured_data_dir = {:?}", data_dir));
+    diag_log(&data_dir, &format!("remote = {:?}", remote));
+    diag_log(&data_dir, &format!("models_dir arg = {:?}", models_dir));
+    diag_log(&data_dir, &format!("process id = {}", std::process::id()));
+
     // Store models_dir for use on restart and future launches. An empty string
     // resets to the standard Hugging Face cache location.
     if let Some(ref dir) = models_dir {
@@ -434,6 +468,7 @@ async fn start_server(
     }
     // Check if server is already running (managed by this app instance)
     if state.child.lock().unwrap().is_some() {
+        diag_log(&data_dir, "Server already running (child state present), returning early");
         return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
     }
 
@@ -455,6 +490,7 @@ async fn start_server(
                     if command.contains("voicebox") {
                         if let Ok(pid) = pid_str.parse::<u32>() {
                             println!("Found existing voicebox-server on port {} (PID: {}), reusing it", SERVER_PORT, pid);
+                            diag_log(&data_dir, &format!("Reusing existing voicebox-server PID {} on port {}", pid, SERVER_PORT));
                             // Store the PID so we can kill it on exit if needed
                             *state.server_pid.lock().unwrap() = Some(pid);
                             return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
@@ -465,9 +501,11 @@ async fn start_server(
                         println!("Port {} in use by '{}' (PID: {}), checking if it's a Voicebox server...", SERVER_PORT, command, pid_str);
                         if check_health(SERVER_PORT) {
                             println!("Health check passed — reusing external server on port {}", SERVER_PORT);
+                            diag_log(&data_dir, "Reusing external server (health check passed)");
                             return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
                         }
                         println!("Health check failed — port is occupied by a non-Voicebox process");
+                        diag_log(&data_dir, &format!("Port {} occupied by non-Voicebox process '{}'", SERVER_PORT, command));
                         return Err(format!(
                             "Port {} is already in use by another application ({}). \
                              Close it or change the Voicebox server port.",
@@ -489,6 +527,7 @@ async fn start_server(
             // Port is in use — check if it's a voicebox process by name first
             if let Some(pid) = find_voicebox_pid_on_port(SERVER_PORT) {
                 println!("Found existing voicebox-server on port {} (PID: {}), reusing it", SERVER_PORT, pid);
+                diag_log(&data_dir, &format!("Reusing existing voicebox-server PID {} on port {}", pid, SERVER_PORT));
                 *state.server_pid.lock().unwrap() = Some(pid);
                 return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
             }
@@ -497,8 +536,10 @@ async fn start_server(
             println!("Port {} in use by unknown process, checking if it's a Voicebox server...", SERVER_PORT);
             if check_health(SERVER_PORT) {
                 println!("Health check passed — reusing external server on port {}", SERVER_PORT);
+                diag_log(&data_dir, "Reusing external server (health check passed)");
                 return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
             }
+            diag_log(&data_dir, &format!("Port {} occupied by unknown non-Voicebox process", SERVER_PORT));
             return Err(format!(
                 "Port {} is already in use by another application. \
                  Close the other application or change the Voicebox port.",
@@ -563,11 +604,14 @@ async fn start_server(
     // Ensure data directory exists
     std::fs::create_dir_all(&data_dir)
         .map_err(|e| format!("Failed to create data dir: {}", e))?;
+    diag_log(&data_dir, "Data directory exists/created OK");
 
     println!("=================================================================");
     println!("Starting voicebox-server sidecar");
     println!("Data directory: {:?}", data_dir);
     println!("Remote mode: {}", remote.unwrap_or(false));
+    diag_log(&data_dir, "Starting voicebox-server sidecar");
+    diag_log(&data_dir, &format!("Data directory: {:?}", data_dir));
 
     // Check for ROCm backend in data directory (onedir layout: backends/rocm/)
     let rocm_binary = {
@@ -580,6 +624,7 @@ async fn start_server(
         let exe_path = rocm_dir.join(rocm_name);
         if exe_path.exists() {
             println!("Found ROCm backend at {:?}", rocm_dir);
+            diag_log(&data_dir, &format!("Found ROCm backend at {:?}", rocm_dir));
 
             let app_version = app.config().version.clone().unwrap_or_default();
             let binary_version = probe_binary_version(&exe_path, &rocm_dir).await;
@@ -587,6 +632,7 @@ async fn start_server(
                 && binary_version.as_deref() == Some(app_version.as_str())
             {
                 println!("ROCm binary version {} matches app version", app_version);
+                diag_log(&data_dir, &format!("ROCm binary version {} matches app version", app_version));
                 true
             } else {
                 println!(
@@ -594,6 +640,11 @@ async fn start_server(
                     binary_version.as_deref().unwrap_or("<unknown>"),
                     app_version
                 );
+                diag_log(&data_dir, &format!(
+                    "ROCm binary version mismatch: binary={}, app={}. Falling back to CPU.",
+                    binary_version.as_deref().unwrap_or("<unknown>"),
+                    app_version
+                ));
                 false
             };
 
@@ -604,6 +655,7 @@ async fn start_server(
             }
         } else {
             println!("No ROCm backend found");
+            diag_log(&data_dir, "No ROCm backend found");
             None
         }
     };
@@ -619,6 +671,7 @@ async fn start_server(
         let exe_path = cuda_dir.join(cuda_name);
         if exe_path.exists() {
             println!("Found CUDA backend at {:?}", cuda_dir);
+            diag_log(&data_dir, &format!("Found CUDA backend at {:?}", cuda_dir));
 
             // Version check: run --version from the onedir directory so
             // PyInstaller can find its support files for the fast --version path
@@ -628,6 +681,7 @@ async fn start_server(
                 && binary_version.as_deref() == Some(app_version.as_str())
             {
                 println!("CUDA binary version {} matches app version", app_version);
+                diag_log(&data_dir, &format!("CUDA binary version {} matches app version", app_version));
                 true
             } else {
                 println!(
@@ -635,6 +689,11 @@ async fn start_server(
                     binary_version.as_deref().unwrap_or("<unknown>"),
                     app_version
                 );
+                diag_log(&data_dir, &format!(
+                    "CUDA binary version mismatch: binary={}, app={}. Falling back to CPU.",
+                    binary_version.as_deref().unwrap_or("<unknown>"),
+                    app_version
+                ));
                 false
             };
 
@@ -645,16 +704,22 @@ async fn start_server(
             }
         } else {
             println!("No CUDA backend found, using bundled CPU binary");
+            diag_log(&data_dir, "No CUDA backend found, using bundled CPU binary");
             None
         }
     };
 
+    diag_log(&data_dir, "Attempting sidecar resolution: voicebox-server");
     let sidecar_result = app.shell().sidecar("voicebox-server");
 
     let mut sidecar = match sidecar_result {
-        Ok(s) => s,
+        Ok(s) => {
+            diag_log(&data_dir, "Sidecar resolved OK");
+            s
+        }
         Err(e) => {
             eprintln!("Failed to get sidecar: {}", e);
+            diag_log(&data_dir, &format!("SIDECAR RESOLUTION FAILED: {}", e));
 
             // In dev mode, check if the server is already running (started manually)
             #[cfg(debug_assertions)]
@@ -668,6 +733,7 @@ async fn start_server(
                     std::time::Duration::from_secs(1),
                 ).is_ok() {
                     println!("Found server already running on port {}", SERVER_PORT);
+                    diag_log(&data_dir, "Found server already running on port (dev mode)");
                     return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
                 }
 
@@ -686,6 +752,7 @@ async fn start_server(
     };
 
     println!("Sidecar command created successfully");
+    diag_log(&data_dir, "Sidecar command created successfully");
 
     // Build common args
     let data_dir_str = data_dir
@@ -704,6 +771,7 @@ async fn start_server(
         .or_else(|| Some(data_dir.join("models").to_string_lossy().into_owned()));
     if let Some(ref dir) = effective_models_dir {
         println!("Custom models directory: {}", dir);
+        diag_log(&data_dir, &format!("Custom models directory: {}", dir));
     }
 
     // Respect backend override (e.g., user wants CPU even though a GPU binary
@@ -713,6 +781,7 @@ async fn start_server(
         let in_memory = state.backend_override.lock().unwrap().clone();
         in_memory.or_else(|| read_persisted_backend_override(&data_dir))
     };
+    diag_log(&data_dir, &format!("backend_override = {:?}", backend_override));
 
     // Honor a pinned GPU variant by ignoring the other one — but only when the
     // pinned variant is actually installed, so a stale pin to a deleted backend
@@ -734,6 +803,7 @@ async fn start_server(
         if let Some(ref rocm_path) = rocm_binary {
             let rocm_dir = rocm_path.parent().unwrap();
             println!("Launching ROCm backend: {:?} (cwd: {:?})", rocm_path, rocm_dir);
+            diag_log(&data_dir, &format!("Launching ROCm backend: {:?}", rocm_path));
             let mut cmd = app.shell().command(rocm_path.to_str().unwrap());
             cmd = cmd.current_dir(rocm_dir);
             cmd = cmd.args(["--data-dir", &data_dir_str, "--port", &port_str, "--parent-pid", &parent_pid_str]);
@@ -742,7 +812,10 @@ async fn start_server(
             if let Some(ref dir) = effective_models_dir { cmd = cmd.env("VOICEBOX_MODELS_DIR", dir); }
             match cmd.spawn() {
                 Ok(r) => { gpu_spawn = Some(Ok(r)); }
-                Err(e) => { println!("ROCm spawn failed ({}), trying CUDA/CPU fallback", e); }
+                Err(e) => {
+                    println!("ROCm spawn failed ({}), trying CUDA/CPU fallback", e);
+                    diag_log(&data_dir, &format!("ROCm spawn failed: {}", e));
+                }
             }
         }
 
@@ -750,15 +823,19 @@ async fn start_server(
             if let Some(ref cuda_path) = cuda_binary {
                 let cuda_dir = cuda_path.parent().unwrap();
                 println!("Launching CUDA backend: {:?} (cwd: {:?})", cuda_path, cuda_dir);
+                diag_log(&data_dir, &format!("Launching CUDA backend: {:?}", cuda_path));
                 let mut cmd = app.shell().command(cuda_path.to_str().unwrap());
                 cmd = cmd.current_dir(cuda_dir);
                 cmd = cmd.args(["--data-dir", &data_dir_str, "--port", &port_str, "--parent-pid", &parent_pid_str]);
                 if is_remote { cmd = cmd.args(["--host", "0.0.0.0"]); }
                 cmd = cmd.env("VOICEBOX_STORAGE_DIR", &data_dir_str);
-            if let Some(ref dir) = effective_models_dir { cmd = cmd.env("VOICEBOX_MODELS_DIR", dir); }
+                if let Some(ref dir) = effective_models_dir { cmd = cmd.env("VOICEBOX_MODELS_DIR", dir); }
                 match cmd.spawn() {
                     Ok(r) => { gpu_spawn = Some(Ok(r)); }
-                    Err(e) => { println!("CUDA spawn failed ({}), falling back to CPU", e); }
+                    Err(e) => {
+                        println!("CUDA spawn failed ({}), falling back to CPU", e);
+                        diag_log(&data_dir, &format!("CUDA spawn failed: {}", e));
+                    }
                 }
             }
         }
@@ -772,11 +849,13 @@ async fn start_server(
             sidecar = sidecar.env("VOICEBOX_STORAGE_DIR", &data_dir_str);
             if let Some(ref dir) = effective_models_dir { sidecar = sidecar.env("VOICEBOX_MODELS_DIR", dir); }
             println!("Spawning bundled CPU server process...");
+            diag_log(&data_dir, "Spawning bundled CPU server process");
             sidecar.spawn()
         }
     } else {
         // Override forces CPU — use bundled sidecar, GPU binary stays on disk
         println!("Backend override=cpu: using bundled CPU sidecar");
+        diag_log(&data_dir, "Backend override=cpu: using bundled CPU sidecar");
         sidecar = sidecar.args(["--data-dir", &data_dir_str, "--port", &port_str, "--parent-pid", &parent_pid_str]);
         if is_remote {
             sidecar = sidecar.args(["--host", "0.0.0.0"]);
@@ -789,9 +868,13 @@ async fn start_server(
     };
 
     let (mut rx, child) = match spawn_result {
-        Ok(result) => result,
+        Ok(result) => {
+            diag_log(&data_dir, "SPAWN SUCCEEDED");
+            result
+        }
         Err(e) => {
             eprintln!("Failed to spawn server process: {}", e);
+            diag_log(&data_dir, &format!("SPAWN FAILED: {}", e));
 
             // In dev mode, check if a manually-started server is available
             #[cfg(debug_assertions)]
@@ -830,9 +913,11 @@ async fn start_server(
 
     println!("Server process spawned, waiting for ready signal...");
     println!("=================================================================");
+    diag_log(&data_dir, "Server process spawned, waiting for ready signal");
 
     // Store child process and PID
     let process_pid = child.pid();
+    diag_log(&data_dir, &format!("Child PID = {}", process_pid));
     *state.server_pid.lock().unwrap() = Some(process_pid);
     *state.child.lock().unwrap() = Some(child);
 
@@ -845,10 +930,12 @@ async fn start_server(
     loop {
         if start_time.elapsed() > timeout {
             eprintln!("Server startup timeout after 120 seconds");
+            diag_log(&data_dir, "TIMEOUT: server did not send ready signal within 120s");
             if !error_output.is_empty() {
                 eprintln!("Collected error output:");
                 for line in &error_output {
                     eprintln!("  {}", line);
+                    diag_log(&data_dir, &format!("  collected error: {}", line));
                 }
             }
 
@@ -876,6 +963,7 @@ async fn start_server(
                     tauri_plugin_shell::process::CommandEvent::Stdout(line) => {
                         let line_str = String::from_utf8_lossy(&line);
                         println!("Server output: {}", line_str);
+                        diag_log(&data_dir, &format!("[server stdout] {}", line_str.trim_end()));
                         let _ = app.emit("server-log", serde_json::json!({
                             "stream": "stdout",
                             "line": line_str.trim_end(),
@@ -883,12 +971,14 @@ async fn start_server(
 
                         if line_str.contains("Uvicorn running") || line_str.contains("Application startup complete") {
                             println!("Server is ready!");
+                            diag_log(&data_dir, "READY SIGNAL DETECTED (stdout)");
                             break;
                         }
                     }
                     tauri_plugin_shell::process::CommandEvent::Stderr(line) => {
                         let line_str = String::from_utf8_lossy(&line).to_string();
                         eprintln!("Server: {}", line_str);
+                        diag_log(&data_dir, &format!("[server stderr] {}", line_str.trim_end()));
                         let _ = app.emit("server-log", serde_json::json!({
                             "stream": "stderr",
                             "line": line_str.trim_end(),
@@ -902,6 +992,7 @@ async fn start_server(
                         // Uvicorn logs to stderr, so check there too
                         if line_str.contains("Uvicorn running") || line_str.contains("Application startup complete") {
                             println!("Server is ready!");
+                            diag_log(&data_dir, "READY SIGNAL DETECTED (stderr)");
                             break;
                         }
                     }
@@ -909,6 +1000,7 @@ async fn start_server(
                 }
             }
             Ok(None) => {
+                diag_log(&data_dir, "SERVER PROCESS ENDED (rx returned None)");
                 // In dev mode, this is expected when using the placeholder binary
                 #[cfg(debug_assertions)]
                 {
