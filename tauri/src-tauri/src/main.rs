@@ -448,7 +448,7 @@ async fn start_server(
     // --- Startup diagnostics: truncate and start fresh each launch ---
     let diag_path = data_dir.join("voicebox-startup.log");
     let _ = std::fs::create_dir_all(&data_dir);
-    let _ = std::fs::write(&diag_path, b"");
+//  let _ = std::fs::write(&diag_path, b"");
     diag_log(&data_dir, "=== start_server() invoked ===");
     diag_log(&data_dir, &format!("configured_data_dir = {:?}", data_dir));
     diag_log(&data_dir, &format!("remote = {:?}", remote));
