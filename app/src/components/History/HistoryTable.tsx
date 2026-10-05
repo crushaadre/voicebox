@@ -62,6 +62,13 @@ interface HistoryTableProps {
   source?: string;
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  manual: 'Voice Studio',
+  assistant: 'Assistant',
+  rvc: 'RVC',
+  import: 'Imported',
+};
+
 export function HistoryTable({ source }: HistoryTableProps) {
   const { t } = useTranslation();
   const [page, setPage] = useState(0);
@@ -531,8 +538,13 @@ export function HistoryTable({ source }: HistoryTableProps) {
 
                     {/* Left side - Meta information */}
                     <div className="flex flex-col gap-1.5 w-48 shrink-0 justify-center">
-                      <div className="font-medium text-sm truncate" title={gen.profile_name}>
-                        {gen.profile_name}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="font-medium text-sm truncate" title={gen.profile_name}>
+                          {gen.profile_name}
+                        </div>
+                        <span className="shrink-0 rounded-full border border-accent/20 bg-accent/5 px-1.5 py-0.5 text-[10px] text-accent">
+                          {SOURCE_LABELS[gen.source ?? 'manual'] ?? gen.source ?? 'Voice Studio'}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">{gen.language}</span>
