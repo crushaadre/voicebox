@@ -192,6 +192,8 @@ async def list_generations(
     if query.search:
         search_pattern = f"%{query.search}%"
         q = q.filter(DBGeneration.text.like(search_pattern))
+    if query.source:
+        q = q.filter(DBGeneration.source == query.source)
     
     # Get total count before pagination
     total_count = q.count()
@@ -221,6 +223,7 @@ async def list_generations(
             instruct=generation.instruct,
             engine=generation.engine or "qwen",
             model_size=generation.model_size,
+            source=generation.source or "manual",
             status=generation.status or "completed",
             error=generation.error,
             is_favorited=bool(generation.is_favorited),

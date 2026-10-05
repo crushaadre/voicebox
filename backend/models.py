@@ -132,6 +132,7 @@ class HistoryQuery(BaseModel):
 
     profile_id: Optional[str] = None
     search: Optional[str] = None
+    source: Optional[str] = None
     limit: int = Field(default=50, ge=1, le=100)
     offset: int = Field(default=0, ge=0)
 
@@ -150,6 +151,7 @@ class HistoryResponse(BaseModel):
     instruct: Optional[str] = None
     engine: Optional[str] = "qwen"
     model_size: Optional[str] = None
+    source: str = "manual"
     status: str = "completed"
     error: Optional[str] = None
     is_favorited: bool = False

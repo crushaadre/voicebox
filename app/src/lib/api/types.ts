@@ -110,6 +110,7 @@ export interface GenerationResponse {
   instruct?: string;
   engine?: string;
   model_size?: string;
+  source?: string;
   status: 'loading_model' | 'generating' | 'completed' | 'failed';
   error?: string;
   is_favorited?: boolean;
@@ -121,6 +122,7 @@ export interface GenerationResponse {
 export interface HistoryQuery {
   profile_id?: string;
   search?: string;
+  source?: string;
   limit?: number;
   offset?: number;
 }

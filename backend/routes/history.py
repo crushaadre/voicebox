@@ -18,6 +18,7 @@ router = APIRouter()
 async def list_history(
     profile_id: str | None = None,
     search: str | None = None,
+    source: str | None = None,
     limit: int = 50,
     offset: int = 0,
     db: Session = Depends(get_db),
@@ -26,6 +27,7 @@ async def list_history(
     query = models.HistoryQuery(
         profile_id=profile_id,
         search=search,
+        source=source,
         limit=limit,
         offset=offset,
     )

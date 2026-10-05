@@ -58,7 +58,11 @@ import { formatDate, formatDuration, formatEngineName } from '@/lib/utils/format
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
 
-export function HistoryTable() {
+interface HistoryTableProps {
+  source?: string;
+}
+
+export function HistoryTable({ source }: HistoryTableProps) {
   const { t } = useTranslation();
   const [page, setPage] = useState(0);
   const [allHistory, setAllHistory] = useState<HistoryResponse[]>([]);
@@ -93,6 +97,7 @@ export function HistoryTable() {
   } = useHistory({
     limit,
     offset: page * limit,
+    source,
   });
 
   const deleteGeneration = useDeleteGeneration();

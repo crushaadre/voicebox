@@ -310,6 +310,7 @@ class ApiClient {
     const params = new URLSearchParams();
     if (query?.profile_id) params.append('profile_id', query.profile_id);
     if (query?.search) params.append('search', query.search);
+    if (query?.source) params.append('source', query.source);
     if (query?.limit) params.append('limit', query.limit.toString());
     if (query?.offset) params.append('offset', query.offset.toString());
 
