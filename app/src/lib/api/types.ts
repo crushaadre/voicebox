@@ -587,6 +587,7 @@ export interface AssistantMessage {
   content: string;
   tool_name?: string | null;
   audio_path?: string | null;
+  generation_id?: string | null;
   created_at: string;
 }
 

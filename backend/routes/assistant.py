@@ -124,8 +124,11 @@ async def assistant_chat(
     audio_path = None
     if request.speak_response:
         try:
-            audio_path = await assistant.speak_response(db, assistant_message.content, settings)
+            audio_path, generation_id = await assistant.speak_response(
+                db, assistant_message.content, settings
+            )
             assistant_message.audio_path = audio_path
+            assistant_message.generation_id = generation_id
             db.commit()
             db.refresh(assistant_message)
         except Exception:
@@ -184,8 +187,11 @@ async def assistant_voice_chat(
     audio_path = None
     if speak_response:
         try:
-            audio_path = await assistant.speak_response(db, assistant_message.content, settings)
+            audio_path, generation_id = await assistant.speak_response(
+                db, assistant_message.content, settings
+            )
             assistant_message.audio_path = audio_path
+            assistant_message.generation_id = generation_id
             db.commit()
             db.refresh(assistant_message)
         except Exception:

@@ -199,7 +199,9 @@ export function AssistantTab() {
                     className="mt-3 w-full"
                     controls
                     preload="none"
-                    src={`${useServerStore.getState().serverUrl}/assistant/audio/${encodeURIComponent(message.audio_path.split(/[\\/]/).pop() ?? '')}`}
+                    src={message.generation_id
+                      ? `${useServerStore.getState().serverUrl}/audio/${encodeURIComponent(message.generation_id)}`
+                      : `${useServerStore.getState().serverUrl}/assistant/audio/${encodeURIComponent(message.audio_path.split(/[\\/]/).pop() ?? '')}`}
                   />
                 )}
               </div>

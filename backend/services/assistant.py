@@ -17,6 +17,7 @@ from ..database import (
     AssistantMessage,
     AssistantSession,
     AssistantSettings,
+    Generation,
     VoiceProfile,
 )
 
@@ -171,13 +172,13 @@ async def chat(
 
 async def speak_response(
     db: Session, text: str, settings: AssistantSettings
-) -> Optional[str]:
-    """Use existing Voicebox TTS for the selected profile and save under data root."""
+) -> tuple[Optional[str], Optional[str]]:
+    """Use existing Voicebox TTS and register the result as a Library generation."""
     if not settings.voice_profile_id:
-        return None
+        return None, None
     profile = db.query(VoiceProfile).filter_by(id=settings.voice_profile_id).first()
     if profile is None:
-        return None
+        return None, None
 
     from .generation import generate_audio_sync
 
@@ -193,8 +194,23 @@ async def speak_response(
         model_size=model_size,
         normalize=True,
     )
-    audio_dir = config.get_data_dir() / "assistant" / "audio"
+    generation_id = str(uuid.uuid4())
+    audio_dir = config.get_generations_dir()
     audio_dir.mkdir(parents=True, exist_ok=True)
-    path = audio_dir / f"{uuid.uuid4()}.wav"
+    path = audio_dir / f"{generation_id}.wav"
     path.write_bytes(audio)
-    return config.to_storage_path(path)
+    stored_path = config.to_storage_path(path)
+    generation = Generation(
+        id=generation_id,
+        profile_id=profile.id,
+        text=text,
+        language=settings.language or profile.language or "en",
+        audio_path=stored_path,
+        engine=engine,
+        model_size=model_size,
+        status="completed",
+        source="assistant",
+    )
+    db.add(generation)
+    db.commit()
+    return stored_path, generation_id
