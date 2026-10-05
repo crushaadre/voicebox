@@ -43,6 +43,7 @@ def run_migrations(engine) -> None:
     _migrate_generation_versions(engine, inspector, tables)
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
+    _migrate_assistant_messages(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
 
 
@@ -50,6 +51,15 @@ def run_migrations(engine) -> None:
 
 def _get_columns(inspector, table: str) -> set[str]:
     return {col["name"] for col in inspector.get_columns(table)}
+
+
+def _migrate_assistant_messages(engine, inspector, tables: set[str]) -> None:
+    """Add persistent audio metadata to assistant messages."""
+    if "assistant_messages" not in tables:
+        return
+    columns = _get_columns(inspector, "assistant_messages")
+    if "audio_path" not in columns:
+        _add_column(engine, "assistant_messages", "audio_path VARCHAR", "audio_path")
 
 
 def _add_column(engine, table: str, column_sql: str, label: str) -> None:

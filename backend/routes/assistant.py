@@ -125,6 +125,9 @@ async def assistant_chat(
     if request.speak_response:
         try:
             audio_path = await assistant.speak_response(db, assistant_message.content, settings)
+            assistant_message.audio_path = audio_path
+            db.commit()
+            db.refresh(assistant_message)
         except Exception:
             # Text chat remains usable when a TTS model or voice profile is unavailable.
             audio_path = None
@@ -182,6 +185,9 @@ async def assistant_voice_chat(
     if speak_response:
         try:
             audio_path = await assistant.speak_response(db, assistant_message.content, settings)
+            assistant_message.audio_path = audio_path
+            db.commit()
+            db.refresh(assistant_message)
         except Exception:
             audio_path = None
     return models.AssistantChatResponse(

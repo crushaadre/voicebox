@@ -863,6 +863,7 @@ class AssistantMessageResponse(BaseModel):
     role: str
     content: str
     tool_name: Optional[str] = None
+    audio_path: Optional[str] = None
     created_at: datetime
 
     class Config:

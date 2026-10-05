@@ -586,6 +586,7 @@ export interface AssistantMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
   tool_name?: string | null;
+  audio_path?: string | null;
   created_at: string;
 }
 

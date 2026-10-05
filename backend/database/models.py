@@ -304,6 +304,7 @@ class AssistantMessage(Base):
     tool_payload = Column(JSON, nullable=True)
     source_capture_id = Column(String, ForeignKey("captures.id"), nullable=True)
     generation_id = Column(String, ForeignKey("generations.id"), nullable=True)
+    audio_path = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

@@ -21,7 +21,6 @@ export function AssistantTab() {
   const [speakResponse, setSpeakResponse] = useState(true);
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -94,10 +93,6 @@ export function AssistantTab() {
           );
           setMessages((current) => [...current, result.user_message, result.assistant_message]);
           setSession(result.session);
-          if (result.audio_path) {
-            const filename = result.audio_path.split(/[\\/]/).pop();
-            if (filename) setAudioUrl(`${useServerStore.getState().serverUrl}/assistant/audio/${encodeURIComponent(filename)}`);
-          }
           setRemember(false);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Voice chat failed');
@@ -131,12 +126,6 @@ export function AssistantTab() {
         remember,
       });
       setMessages((current) => [...current, result.user_message, result.assistant_message]);
-      if (result.audio_path) {
-        const filename = result.audio_path.split(/[\\/]/).pop();
-        if (filename) {
-          setAudioUrl(`${useServerStore.getState().serverUrl}/assistant/audio/${encodeURIComponent(filename)}`);
-        }
-      }
       setSession(result.session);
       setSessions((current) => current.map((item) => (item.id === result.session.id ? result.session : item)));
       setRemember(false);
@@ -197,7 +186,6 @@ export function AssistantTab() {
               </select>
               <span className="text-xs text-muted-foreground">{selectedVoice ? selectedVoice.name : 'No voice selected'}</span>
             </div>
-            {audioUrl && <audio className="mt-2 w-full" controls src={audioUrl} />}
           </div>
 
           <div className="flex-1 overflow-auto p-5 space-y-4">
@@ -206,6 +194,14 @@ export function AssistantTab() {
               <div key={message.id} className={`max-w-[80%] rounded-lg px-4 py-3 ${message.role === 'user' ? 'ml-auto bg-accent/15' : 'bg-muted/40'}`}>
                 <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">{message.role}</div>
                 <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                {message.audio_path && (
+                  <audio
+                    className="mt-3 w-full"
+                    controls
+                    preload="none"
+                    src={`${useServerStore.getState().serverUrl}/assistant/audio/${encodeURIComponent(message.audio_path.split(/[\\/]/).pop() ?? '')}`}
+                  />
+                )}
               </div>
             ))}
             {sending && <div className="text-sm text-muted-foreground"><Loader2 className="inline h-4 w-4 mr-2 animate-spin" />Thinking locally…</div>}
