@@ -72,26 +72,26 @@
 }
 
 .dark {
-  --background: 0 0% 6%;
-  --foreground: 0 0% 95%;
-  --card: 0 0% 8%;
-  --card-foreground: 0 0% 95%;
-  --popover: 0 0% 8%;
-  --popover-foreground: 0 0% 95%;
-  --primary: 0 0% 18%;
-  --primary-foreground: 0 0% 95%;
-  --secondary: 0 0% 12%;
-  --secondary-foreground: 0 0% 95%;
-  --muted: 0 0% 12%;
-  --muted-foreground: 0 0% 60%;
-  --accent: 43 50% 45%;
-  --accent-foreground: 0 0% 95%;
+  --background: 153 27% 5%;
+  --foreground: 43 30% 94%;
+  --card: 153 24% 8%;
+  --card-foreground: 43 30% 94%;
+  --popover: 153 24% 9%;
+  --popover-foreground: 43 30% 94%;
+  --primary: 153 42% 24%;
+  --primary-foreground: 43 30% 96%;
+  --secondary: 153 22% 12%;
+  --secondary-foreground: 43 30% 94%;
+  --muted: 153 19% 12%;
+  --muted-foreground: 150 10% 64%;
+  --accent: 43 83% 55%;
+  --accent-foreground: 153 27% 6%;
   --destructive: 0 62.8% 50%;
   --destructive-foreground: 0 0% 95%;
-  --border: 0 0% 12%;
-  --input: 0 0% 12%;
-  --ring: 0 0% 40%;
-  --sidebar: 0 0% 4%;
+  --border: 149 20% 18%;
+  --input: 149 20% 16%;
+  --ring: 43 83% 55%;
+  --sidebar: 153 32% 4%;
   --chart-1: 220 70% 50%;
   --chart-2: 160 60% 45%;
   --chart-3: 30 80% 55%;
@@ -109,6 +109,9 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-image: radial-gradient(circle at 18% 0%, hsl(154 52% 15% / 0.34), transparent 34rem),
+      radial-gradient(circle at 92% 100%, hsl(43 83% 55% / 0.06), transparent 30rem);
+    background-attachment: fixed;
   }
   /* Hide scrollbars globally */
   * {
@@ -160,6 +163,22 @@
 .dark .sidebar-logo {
   filter: drop-shadow(0 0 6px hsl(var(--accent) / 0.5))
     drop-shadow(0 0 14px hsl(var(--accent) / 0.35)) drop-shadow(0 0 28px hsl(var(--accent) / 0.2));
+}
+
+.dark .wahgwaan-brand {
+  letter-spacing: 0.18em;
+  text-shadow: 0 0 18px hsl(var(--accent) / 0.16);
+}
+
+.dark button,
+.dark [role='button'] {
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.dark button:hover:not(:disabled),
+.dark [role='button']:hover:not([aria-disabled='true']) {
+  box-shadow: 0 8px 26px hsl(153 40% 2% / 0.22);
 }
 
 /* react-loaders */

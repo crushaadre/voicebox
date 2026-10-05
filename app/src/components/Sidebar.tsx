@@ -44,13 +44,16 @@ export function Sidebar({ isMacOS }: SidebarProps) {
   return (
     <div
       className={cn(
-        'fixed left-0 top-0 h-full w-20 bg-sidebar border-r border-border flex flex-col items-center py-6 gap-6',
+        'fixed left-0 top-0 h-full w-24 bg-sidebar/90 border-r border-border flex flex-col items-center py-6 gap-5 backdrop-blur-xl',
         isMacOS && 'pt-14',
       )}
     >
       {/* Logo */}
-      <div className="mb-2">
-        <img src={voiceboxLogo} alt="Voicebox" className="sidebar-logo w-12 h-12 object-contain" />
+      <div className="mb-2 flex flex-col items-center gap-2">
+        <div className="rounded-2xl border border-accent/20 bg-accent/5 p-2 shadow-lg shadow-accent/5">
+          <img src={voiceboxLogo} alt="Wah Gwaan microphone" className="sidebar-logo w-12 h-12 object-contain" />
+        </div>
+        <div className="wahgwaan-brand text-[9px] font-semibold text-accent">WAH GWAAN</div>
       </div>
 
       {/* Navigation Buttons */}

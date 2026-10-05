@@ -89,7 +89,8 @@ export const useUIStore = create<UIStore>()(
       profileFormDraft: null,
       setProfileFormDraft: (draft) => set({ profileFormDraft: draft }),
 
-      theme: 'system',
+      // Wah Gwaan is dark-first; users can still choose light or system in Settings.
+      theme: 'dark',
       setTheme: (theme) => {
         set({ theme });
         applyTheme(theme);
