@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { AudioWaveform, LibraryBig } from 'lucide-react';
+import { AudioWaveform, LibraryBig, Search } from 'lucide-react';
 import { HistoryTable } from '@/components/History/HistoryTable';
 
 export function LibraryTab() {
   const [source, setSource] = useState('');
+  const [search, setSearch] = useState('');
 
   return (
     <div className="h-full min-h-0 flex flex-col gap-5 py-6">
@@ -32,8 +33,13 @@ export function LibraryTab() {
           </div>
         </div>
       </div>
+      <label className="flex items-center gap-2 rounded-lg border border-border bg-card/50 px-3 py-2">
+        <Search className="h-4 w-4 text-muted-foreground" />
+        <span className="sr-only">Search Library</span>
+        <input className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search transcripts and assistant responses…" />
+      </label>
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card/35 p-4 shadow-xl shadow-black/10">
-        <HistoryTable source={source || undefined} />
+        <HistoryTable source={source || undefined} search={search || undefined} />
       </div>
     </div>
   );

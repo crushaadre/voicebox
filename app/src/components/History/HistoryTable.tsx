@@ -60,6 +60,7 @@ import { usePlayerStore } from '@/stores/playerStore';
 
 interface HistoryTableProps {
   source?: string;
+  search?: string;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -69,7 +70,7 @@ const SOURCE_LABELS: Record<string, string> = {
   import: 'Imported',
 };
 
-export function HistoryTable({ source }: HistoryTableProps) {
+export function HistoryTable({ source, search }: HistoryTableProps) {
   const { t } = useTranslation();
   const [page, setPage] = useState(0);
   const [allHistory, setAllHistory] = useState<HistoryResponse[]>([]);
@@ -105,6 +106,7 @@ export function HistoryTable({ source }: HistoryTableProps) {
     limit,
     offset: page * limit,
     source,
+    search,
   });
 
   const deleteGeneration = useDeleteGeneration();
