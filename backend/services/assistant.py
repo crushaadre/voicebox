@@ -10,8 +10,9 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from .. import config
-from ..backends import get_llm_model
+from .llm import get_llm_model
 from . import assistant_tools
+from . import patwah
 from ..database import (
     AssistantMemory,
     AssistantMessage,
@@ -151,6 +152,14 @@ async def chat(
     memories = search_memories(db, cleaned, limit=6) if settings.memory_enabled else []
     history = list_messages(db, session.id, limit=24)
     system = _build_system_prompt(settings, memories)
+    is_patwah, confidence, markers = patwah.detect(cleaned)
+    if is_patwah:
+        system += (
+            "\nThe user's message appears to include Jamaican Patwah. Understand it in context "
+            "before answering; do not mock, overcorrect, or translate unless asked. Preserve the "
+            "user's intended tone. Recognition confidence is "
+            f"{confidence:.2f}; detected markers: {', '.join(markers) or 'phrase match'}."
+        )
     backend = get_llm_model()
     selected_model = model_size or settings.model_size
     reply = await backend.generate(

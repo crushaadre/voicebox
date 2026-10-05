@@ -617,3 +617,30 @@ export interface AssistantMemory {
   created_at: string;
   updated_at: string;
 }
+
+
+export interface PatwahEntry {
+  patwah: string;
+  english: string;
+  category: string;
+  note: string;
+}
+
+export interface PatwahLibraryResponse {
+  entries: PatwahEntry[];
+  categories: string[];
+}
+
+export interface PatwahDetectResponse {
+  is_patwah: boolean;
+  confidence: number;
+  matched_markers: string[];
+}
+
+export interface PatwahTranslateResponse {
+  source_text: string;
+  translation: string;
+  direction: 'patwah-to-english' | 'english-to-patwah';
+  provider: string;
+  matched_entry?: PatwahEntry | null;
+}

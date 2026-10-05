@@ -908,3 +908,27 @@ class AssistantMemoryResponse(BaseModel):
 class AssistantMemorySearch(BaseModel):
     query: Optional[str] = Field(None, max_length=500)
     limit: int = Field(default=20, ge=1, le=100)
+
+
+class PatwahTranslateRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=4000)
+    direction: str = Field(..., pattern=r"^(patwah-to-english|english-to-patwah)$")
+    model_size: Optional[str] = Field(None, pattern=r"^(0\.6B|1\.7B|4B)$")
+
+
+class PatwahTranslateResponse(BaseModel):
+    source_text: str
+    translation: str
+    direction: str
+    provider: str
+    matched_entry: Optional[dict[str, str]] = None
+
+
+class PatwahDetectRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=4000)
+
+
+class PatwahDetectResponse(BaseModel):
+    is_patwah: bool
+    confidence: float
+    matched_markers: list[str]

@@ -59,6 +59,9 @@ import type {
   AssistantMessage,
   AssistantSettings,
   AssistantVoice,
+  PatwahDetectResponse,
+  PatwahLibraryResponse,
+  PatwahTranslateResponse,
 } from './types';
 
 function formatErrorDetail(detail: unknown, fallback: string): string {
@@ -976,6 +979,28 @@ class ApiClient {
 
   async listAssistantVoices(): Promise<AssistantVoice[]> {
     return this.request<AssistantVoice[]>('/assistant/voices');
+  }
+
+  async getPatwahLibrary(category?: string): Promise<PatwahLibraryResponse> {
+    const suffix = category ? `?category=${encodeURIComponent(category)}` : '';
+    return this.request<PatwahLibraryResponse>(`/patwah/library${suffix}`);
+  }
+
+  async detectPatwah(text: string): Promise<PatwahDetectResponse> {
+    return this.request<PatwahDetectResponse>('/patwah/detect', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  async translatePatwah(
+    text: string,
+    direction: 'patwah-to-english' | 'english-to-patwah',
+  ): Promise<PatwahTranslateResponse> {
+    return this.request<PatwahTranslateResponse>('/patwah/translate', {
+      method: 'POST',
+      body: JSON.stringify({ text, direction }),
+    });
   }
 
   async listAssistantSessions(): Promise<AssistantSession[]> {

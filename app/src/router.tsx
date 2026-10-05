@@ -25,6 +25,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { VoicesTab } from '@/components/VoicesTab/VoicesTab';
 import { RvcTab } from '@/components/RvcTab/RvcTab';
 import { AssistantTab } from '@/components/AssistantTab/AssistantTab';
+import { PatwahTab } from '@/components/PatwahTab/PatwahTab';
 import { useGenerationProgress } from '@/lib/hooks/useGenerationProgress';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { MODEL_DISPLAY_NAMES, useRestoreActiveTasks } from '@/lib/hooks/useRestoreActiveTasks';
@@ -120,6 +121,13 @@ const assistantRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/assistant',
   component: AssistantTab,
+});
+
+// Jamaican Patwah learning and translation route
+const patwahRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/patwah',
+  component: PatwahTab,
 });
 
 // RVC vocal conversion route
@@ -222,6 +230,7 @@ const routeTree = rootRoute.addChildren([
   capturesRoute,
   voicesRoute,
   assistantRoute,
+  patwahRoute,
   rvcRoute,
   effectsRoute,
   modelsRoute,
