@@ -1,5 +1,5 @@
 import { Link, useMatchRoute } from '@tanstack/react-router';
-import { AudioLines, Bot, Box, Captions, Languages, type LucideIcon, Mic, Settings, Volume2, Wand2, Radio } from 'lucide-react';
+import { AudioLines, Bot, Box, Captions, Languages, LibraryBig, type LucideIcon, Mic, Settings, Volume2, Wand2, Radio } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import voiceboxLogo from '@/assets/voicebox-logo.png';
@@ -26,6 +26,7 @@ const tabs: Array<{
   { id: 'voices', path: '/voices', icon: Mic, labelKey: 'nav.voices' },
   { id: 'assistant', path: '/assistant', icon: Bot, label: 'Assistant' },
   { id: 'patwah', path: '/patwah', icon: Languages, label: 'Teach Me Patwah' },
+  { id: 'library', path: '/library', icon: LibraryBig, label: 'Library' },
   { id: 'rvc', path: '/rvc', icon: Radio, label: 'RVC' },
   { id: 'effects', path: '/effects', icon: Wand2, labelKey: 'nav.effects' },
   { id: 'models', path: '/models', icon: Box, labelKey: 'nav.models' },

@@ -26,6 +26,7 @@ import { VoicesTab } from '@/components/VoicesTab/VoicesTab';
 import { RvcTab } from '@/components/RvcTab/RvcTab';
 import { AssistantTab } from '@/components/AssistantTab/AssistantTab';
 import { PatwahTab } from '@/components/PatwahTab/PatwahTab';
+import { LibraryTab } from '@/components/LibraryTab/LibraryTab';
 import { useGenerationProgress } from '@/lib/hooks/useGenerationProgress';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { MODEL_DISPLAY_NAMES, useRestoreActiveTasks } from '@/lib/hooks/useRestoreActiveTasks';
@@ -130,6 +131,13 @@ const patwahRoute = createRoute({
   component: PatwahTab,
 });
 
+// Unified audio Library route
+const libraryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/library',
+  component: LibraryTab,
+});
+
 // RVC vocal conversion route
 const rvcRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -231,6 +239,7 @@ const routeTree = rootRoute.addChildren([
   voicesRoute,
   assistantRoute,
   patwahRoute,
+  libraryRoute,
   rvcRoute,
   effectsRoute,
   modelsRoute,
