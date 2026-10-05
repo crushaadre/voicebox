@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Upload, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { apiClient } from '@/lib/api/client';
+import type { VoiceProfileResponse } from '@/lib/api/types';
 import { useServerStore } from '@/stores/serverStore';
 
 type RvcStatus = {
@@ -15,6 +17,8 @@ type RvcStatus = {
 export function RvcTab() {
   const serverUrl = useServerStore((state) => state.serverUrl);
   const [status, setStatus] = useState<RvcStatus | null>(null);
+  const [profiles, setProfiles] = useState<VoiceProfileResponse[]>([]);
+  const [profileId, setProfileId] = useState('');
   const [source, setSource] = useState<File | null>(null);
   const [model, setModel] = useState('');
   const [index, setIndex] = useState('');
@@ -45,6 +49,10 @@ export function RvcTab() {
 
   useEffect(() => {
     void refresh();
+    void apiClient.listProfiles().then((items) => {
+      setProfiles(items);
+      if (!profileId && items[0]) setProfileId(items[0].id);
+    }).catch(() => setMessage('Voice profiles could not be loaded; RVC output will not be added to Library.'));
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       if (resultUrl) URL.revokeObjectURL(resultUrl);
@@ -88,6 +96,7 @@ export function RvcTab() {
     form.append('index_rate', String(indexRate));
     form.append('protect', String(protect));
     form.append('output_format', outputFormat);
+    if (profileId) form.append('profile_id', profileId);
     setBusy(true);
     setMessage('Converting vocal offline. This can take several minutes on CPU.');
     try {
@@ -100,7 +109,9 @@ export function RvcTab() {
       const url = URL.createObjectURL(await response.blob());
       setResultUrl(url);
       setResultName(`voicebox-rvc-output.${outputFormat}`);
-      setMessage('Conversion complete. Listen below or download the converted vocal.');
+      setMessage(profileId
+        ? 'Conversion complete. The converted vocal was added to Library.'
+        : 'Conversion complete. Listen below or download the converted vocal.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'RVC conversion failed');
     } finally {
@@ -143,6 +154,7 @@ export function RvcTab() {
           <label className="text-sm space-y-2"><span>Index mix: {indexRate.toFixed(2)}</span><input className="w-full" type="range" min={0} max={1} step={0.01} value={indexRate} onChange={(event) => setIndexRate(Number(event.target.value))} /></label>
           <label className="text-sm space-y-2"><span>Protection: {protect.toFixed(2)}</span><input className="w-full" type="range" min={0} max={0.5} step={0.01} value={protect} onChange={(event) => setProtect(Number(event.target.value))} /></label>
           <label className="text-sm space-y-2"><span>Output format</span><select className="w-full rounded-md border border-input bg-background px-3 py-2" value={outputFormat} onChange={(event) => setOutputFormat(event.target.value as 'wav' | 'mp3')}><option value="wav">WAV</option><option value="mp3">MP3</option></select></label>
+          <label className="text-sm space-y-2"><span>Save to Library profile</span><select className="w-full rounded-md border border-input bg-background px-3 py-2" value={profileId} onChange={(event) => setProfileId(event.target.value)}><option value="">Do not add to Library</option>{profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label>
         </div>
         <p className="text-xs text-muted-foreground">RVC changes voice timbre and may change pitch details or introduce artifacts; it does not guarantee sample-perfect timing.</p>
         <Button onClick={() => void convert()} disabled={busy || !source || !model}>{busy ? 'Converting…' : 'Convert vocal'}</Button>

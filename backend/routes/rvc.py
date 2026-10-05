@@ -12,16 +12,18 @@ import sys
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
 
-from ..config import get_data_dir
+from .. import config
+from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 
 router = APIRouter(prefix="/rvc", tags=["rvc"])
 
 
 def _root() -> Path:
-    root = get_data_dir() / "rvc"
+    root = config.get_data_dir() / "rvc"
     for name in ("inputs", "outputs", "models", "indices", "assets", "logs"):
         (root / name).mkdir(parents=True, exist_ok=True)
     return root
@@ -107,6 +109,8 @@ async def convert(
     index_rate: float = Form(0.75),
     protect: float = Form(0.33),
     output_format: str = Form("wav"),
+    profile_id: str = Form(""),
+    db: Session = Depends(get_db),
 ):
     if output_format not in {"wav", "mp3", "flac", "m4a"}:
         raise HTTPException(status_code=400, detail="Output must be WAV, MP3, FLAC, or M4A")
@@ -135,5 +139,26 @@ async def convert(
         output_path.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     input_path.unlink(missing_ok=True)
+    generation_id = None
+    if profile_id:
+        profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+        if not profile:
+            raise HTTPException(status_code=404, detail="Selected Voicebox profile was not found")
+        generation_id = uuid.uuid4().hex
+        db.add(DBGeneration(
+            id=generation_id,
+            profile_id=profile.id,
+            text=f"RVC conversion of {source.filename or 'vocal recording'} using {model}",
+            language=profile.language or "en",
+            audio_path=config.to_storage_path(output_path),
+            engine="rvc",
+            model_size=model,
+            status="completed",
+            source="rvc",
+        ))
+        db.commit()
     media = {"wav": "audio/wav", "mp3": "audio/mpeg", "flac": "audio/flac", "m4a": "audio/mp4"}[output_format]
-    return FileResponse(output_path, media_type=media, filename=f"voicebox-rvc-{job_id}.{output_format}")
+    headers = {"X-Voicebox-Source": "rvc"}
+    if generation_id:
+        headers["X-Voicebox-Generation-Id"] = generation_id
+    return FileResponse(output_path, media_type=media, filename=f"voicebox-rvc-{job_id}.{output_format}", headers=headers)
